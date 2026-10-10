@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17223b">
+  <title>My Chaldea - FGO所持・育成管理</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<section id="safety-panel" aria-label="保存とバックアップ"></section>
+  <aside class="public-notice" aria-label="このツールについて"><strong>非公式ツール</strong> — Fate/Grand Orderの運営・権利者とは関係ありません。ゲームの画像・ロゴは使用していません。
+<details><summary>使い方・保存について</summary><p>カードを選んで所持・育成情報を入力します。サーヴァント、魔術礼装、概念礼装、素材・資源、編成の記録を切り替えられます。データの収録時点は2026年9月3日です。</p><p>入力はこのブラウザーに保存します。端末やブラウザー、サイトの保存先が変わると共有されません。ゲームへのログインやパスワード入力は不要です。</p><p>変更後はJSONバックアップを端末へ保存してください。「復元」でJSONを取り込めます。ブラウザーのデータ削除や故障に備え、保存済みJSONを保管してください。</p><p>別タブで保存した場合、古いタブは保存を止めます。「最新状態を再読込」で復帰し、内容を確認してから編集してください。安全な排他機能が使えない環境では保存できません。HTTPSまたは専用localhostで利用してください。</p><p>入力を自動で外部送信しません。AI相談用の出力・コピーを他サービスへ渡す場合は、ご自身で内容を確認してください。ゲームアカウントや引き継ぎコード等をメモへ入れないでください。</p><p>名称等の権利は各権利者に帰属します。データの誤り・未収録項目はゲーム内の最新情報を確認してください。</p></details></aside>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">非公式の所持・育成管理ツール</p>
+      <h1>My Chaldea</h1>
+      <p class="subtitle">高難易度攻略のための所持・育成管理</p>
+    </div>
+    <div class="header-actions">
+      <p id="backup-status" class="backup-status backup-status-empty">入力後は必ずバックアップ</p>
+      <button id="export-ai-button" class="button button-primary">AI相談用に出力</button>
+      <button id="backup-button" class="button">バックアップ</button>
+      <label class="button file-button">
+        復元
+        <input id="restore-input" type="file" accept="application/json,.json">
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <nav class="view-tabs" aria-label="入力するデータ">
+      <button type="button" class="view-tab active" data-view="servants" aria-selected="true">サーヴァント</button>
+      <button type="button" class="view-tab" data-view="mystic-codes" aria-selected="false">魔術礼装</button>
+      <button type="button" class="view-tab" data-view="craft-essences" aria-selected="false">概念礼装</button>
+      <button type="button" class="view-tab" data-view="inventory" aria-selected="false">素材・資源</button>
+      <button type="button" class="view-tab" data-view="olga-marie" aria-selected="false">オルガマリー</button>
+    </nav>
+
+    <section id="servant-view" class="app-view">
+      <section class="summary" aria-label="登録状況">
+        <article>
+          <span>所持</span>
+          <strong id="owned-count">0</strong>
+        </article>
+        <article>
+          <span>スキル入力済み</span>
+          <strong id="trained-count">0</strong>
+        </article>
+        <article>
+          <span>全サーヴァント</span>
+          <strong id="total-count">0</strong>
+        </article>
+        <article>
+          <span>最終更新</span>
+          <strong id="updated-at">未登録</strong>
+        </article>
+      </section>
+
+      <section class="controls" aria-label="サーヴァントの絞り込み">
+        <label class="search-field">
+          <span>名前を検索</span>
+          <input id="search-input" type="search" placeholder="例：アルトリア">
+        </label>
+        <label>
+          <span>クラス</span>
+          <select id="class-filter">
+            <option value="all">すべて</option>
+          </select>
+        </label>
+        <label>
+          <span>レア度</span>
+          <select id="rarity-filter">
+            <option value="all">すべて</option>
+            <option value="5">★5</option>
+            <option value="4">★4</option>
+            <option value="3">★3</option>
+            <option value="2">★2</option>
+            <option value="1">★1</option>
+            <option value="0">★0</option>
+          </select>
+        </label>
+        <label>
+          <span>所持状況</span>
+          <select id="owned-filter">
+            <option value="all">すべて</option>
+            <option value="owned">所持のみ</option>
+            <option value="unowned">未所持のみ</option>
+            <option value="incomplete">育成情報が未入力</option>
+          </select>
+        </label>
+        <label>
+          <span>並び順</span>
+          <select id="sort-order">
+            <option value="collection">登録番号順</option>
+            <option value="rarity-desc">レア度が高い順</option>
+            <option value="rarity-asc">レア度が低い順</option>
+            <option value="class">クラス順</option>
+            <option value="name">名前順</option>
+            <option value="owned">所持を先に表示</option>
+          </select>
+        </label>
+      </section>
+
+      <div class="result-row">
+        <p id="result-count">0騎を表示</p>
+        <p class="save-note">入力内容はこの端末に自動保存されます</p>
+      </div>
+
+      <section id="servant-grid" class="servant-grid" aria-live="polite"></section>
+    </section>
+
+    <section id="mystic-code-view" class="app-view" hidden>
+      <section class="summary summary-three" aria-label="魔術礼装の登録状況">
+        <article>
+          <span>所持</span>
+          <strong id="mystic-owned-count">0</strong>
+        </article>
+        <article>
+          <span>Lv.10</span>
+          <strong id="mystic-max-count">0</strong>
+        </article>
+        <article>
+          <span>全魔術礼装</span>
+          <strong id="mystic-total-count">0</strong>
+        </article>
+      </section>
+
+      <section class="controls mystic-controls" aria-label="魔術礼装の絞り込み">
+        <label class="search-field">
+          <span>名前を検索</span>
+          <input id="mystic-search-input" type="search" placeholder="例：カルデア">
+        </label>
+        <label>
+          <span>所持状況</span>
+          <select id="mystic-owned-filter">
+            <option value="all">すべて</option>
+            <option value="owned">所持のみ</option>
+            <option value="unowned">未所持のみ</option>
+            <option value="incomplete">レベル未入力</option>
+          </select>
+        </label>
+      </section>
+
+      <div class="result-row">
+        <p id="mystic-result-count">0着を表示</p>
+        <p class="save-note">所持とレベルを入力してください</p>
+      </div>
+
+      <section id="mystic-code-grid" class="mystic-code-grid" aria-live="polite"></section>
+    </section>
+
+    <section id="craft-essence-view" class="app-view" hidden>
+      <section class="summary" aria-label="概念礼装の登録状況">
+        <article>
+          <span>所持種類</span>
+          <strong id="ce-owned-count">0</strong>
+        </article>
+        <article>
+          <span>最大解放済み</span>
+          <strong id="ce-mlb-count">0</strong>
+        </article>
+        <article>
+          <span>Lv.MAX</span>
+          <strong id="ce-max-count">0</strong>
+        </article>
+        <article>
+          <span>全概念礼装</span>
+          <strong id="ce-total-count">0</strong>
+        </article>
+      </section>
+
+      <section class="controls ce-controls" aria-label="概念礼装の絞り込み">
+        <label class="search-field">
+          <span>名前を検索</span>
+          <input id="ce-search-input" type="search" placeholder="例：黒の聖杯">
+        </label>
+        <label>
+          <span>種類</span>
+          <select id="ce-category-filter">
+            <option value="all">すべて</option>
+            <option value="normal">通常・マナプリズム</option>
+            <option value="event">イベント</option>
+            <option value="bond">絆礼装</option>
+            <option value="campaign">記念・キャンペーン</option>
+            <option value="valentine">バレンタイン</option>
+            <option value="exp">経験値用</option>
+            <option value="other">その他</option>
+          </select>
+        </label>
+        <label>
+          <span>レア度</span>
+          <select id="ce-rarity-filter">
+            <option value="all">すべて</option>
+            <option value="5">★5</option>
+            <option value="4">★4</option>
+            <option value="3">★3</option>
+            <option value="2">★2</option>
+            <option value="1">★1</option>
+          </select>
+        </label>
+        <label>
+          <span>所持状況</span>
+          <select id="ce-owned-filter">
+            <option value="all">すべて</option>
+            <option value="owned">所持のみ</option>
+            <option value="unowned">未所持のみ</option>
+            <option value="mlb">最大解放済み</option>
+            <option value="incomplete">詳細が未入力</option>
+          </select>
+        </label>
+        <label>
+          <span>並び順</span>
+          <select id="ce-sort-order">
+            <option value="collection">図鑑番号順</option>
+            <option value="newest">新しい順</option>
+            <option value="rarity">レア度が高い順</option>
+            <option value="atk">最大ATK順</option>
+            <option value="name">名前順</option>
+            <option value="owned">所持を先に表示</option>
+          </select>
+        </label>
+      </section>
+
+      <div class="result-row">
+        <p id="ce-result-count">0枚を表示</p>
+        <p class="save-note">攻略用は枚数・最大解放・最高レベルを入力してください</p>
+      </div>
+
+      <section id="craft-essence-grid" class="craft-essence-grid" aria-live="polite"></section>
+    </section>
+
+    <section id="inventory-view" class="app-view" hidden>
+      <section class="summary summary-four" aria-label="素材・資源の登録状況">
+        <article><span>QP</span><strong id="inventory-qp-summary">未入力</strong></article>
+        <article><span>入力済み項目</span><strong id="inventory-entered-count">0</strong></article>
+        <article><span>聖杯</span><strong id="inventory-grail-summary">未入力</strong></article>
+        <article><span>伝承結晶</span><strong id="inventory-lore-summary">未入力</strong></article>
+      </section>
+      <p class="inventory-help">ゲーム内の所持アイテム画面に近い順番です。数字欄は半角数字入力向けで、全角数字を入れても自動で半角に直します。完璧でなくても大丈夫です。</p>
+      <div id="inventory-groups" class="inventory-groups"></div>
+    </section>
+
+    <section id="olga-marie-view" class="app-view" hidden>
+      <section class="summary summary-four" aria-label="オルガマリークエスト入力状況">
+        <article><span>入力済みパーティ</span><strong id="olga-party-count">0 / 10</strong></article>
+        <article><span>サーヴァント</span><strong id="olga-servant-count">0 / 30</strong></article>
+        <article><span>概念礼装</span><strong id="olga-ce-count">0 / 30</strong></article>
+        <article><span>重複確認</span><strong id="olga-duplicate-summary">問題なし</strong></article>
+      </section>
+
+      <section class="olga-toolbar" aria-label="記録するクエスト">
+        <label>
+          <span>クエスト</span>
+          <select id="olga-quest-select">
+            <option value="1">オルガマリークエスト 1</option>
+            <option value="2">オルガマリークエスト 2</option>
+            <option value="3">オルガマリークエスト 3</option>
+            <option value="4">オルガマリークエスト 4</option>
+          </select>
+        </label>
+        <label>
+          <span>難易度・挑戦</span>
+          <select id="olga-mode-select">
+            <option value="通常">通常</option>
+            <option value="やや本気">やや本気</option>
+            <option value="すごい本気">すごい本気</option>
+            <option value="リプレイ">リプレイ</option>
+            <option value="その他">その他</option>
+          </select>
+        </label>
+        <button type="button" id="olga-clear-button" class="button button-danger">この記録を空にする</button>
+      </section>
+
+      <p id="olga-source-note" class="inventory-help">My Chaldeaで所持登録したサーヴァントと概念礼装を候補に表示します。入力内容はこの端末に自動保存されます。</p>
+      <div id="olga-duplicate-warning" class="olga-warning" hidden></div>
+
+      <datalist id="olga-servant-options"></datalist>
+      <datalist id="olga-ce-options"></datalist>
+      <div id="olga-party-list" class="olga-party-list"></div>
+
+      <section class="olga-overall-panel">
+        <label>
+          <span>クエスト全体のメモ</span>
+          <textarea id="olga-overall-notes" rows="4" placeholder="どこで苦戦したか、残りHP、やり直したい点など"></textarea>
+        </label>
+      </section>
+
+      <section class="olga-export-panel">
+        <div class="olga-export-heading">
+          <div>
+            <p class="eyebrow">ChatGPTへ送る内容</p>
+            <h2>使用編成の出力</h2>
+          </div>
+          <div class="olga-export-actions">
+            <button type="button" id="olga-download-button" class="button">Markdownを保存</button>
+            <button type="button" id="olga-copy-button" class="button button-primary">コピー</button>
+          </div>
+        </div>
+        <textarea id="olga-export-preview" rows="18" readonly></textarea>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="editor-dialog" class="dialog">
+    <form id="editor-form" method="dialog">
+      <div class="dialog-heading">
+        <img id="editor-face" alt="">
+        <div>
+          <p id="editor-meta" class="eyebrow"></p>
+          <h2 id="editor-name"></h2>
+        </div>
+        <button type="button" id="editor-close" class="icon-button" aria-label="閉じる">×</button>
+      </div>
+
+      <label class="owned-switch">
+        <input id="editor-owned" type="checkbox">
+        <span>このサーヴァントを所持している</span>
+      </label>
+
+      <div id="training-fields">
+        <div class="field-grid primary-fields">
+          <label>
+            <span>レベル</span>
+            <input id="editor-level" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="未入力">
+          </label>
+          <label>
+            <span>宝具レベル</span>
+            <select id="editor-np">
+              <option value="">未入力</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+        </div>
+
+        <fieldset>
+          <legend>コイン・強化値</legend>
+          <div class="field-grid enhancement-fields">
+            <label>
+              <span>サーヴァントコイン</span>
+              <input id="editor-coins" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="未入力">
+            </label>
+            <label>
+              <span>HP強化</span>
+              <input id="editor-hp-enhancement" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="例：2000">
+            </label>
+            <label>
+              <span>ATK強化</span>
+              <input id="editor-atk-enhancement" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="例：2000">
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>通常スキル</legend>
+          <div class="skill-grid">
+            <label><span>スキル1</span><select id="editor-skill-1" class="level-select"></select></label>
+            <label><span>スキル2</span><select id="editor-skill-2" class="level-select"></select></label>
+            <label><span>スキル3</span><select id="editor-skill-3" class="level-select"></select></label>
+          </div>
+          <div class="preset-actions">
+            <button type="button" data-skill-preset="1">1/1/1</button>
+            <button type="button" data-skill-preset="6">6/6/6</button>
+            <button type="button" data-skill-preset="10">10/10/10</button>
+          </div>
+        </fieldset>
+
+        <details>
+          <summary>アペンドスキルを入力</summary>
+          <div class="append-grid">
+            <label><span>A1</span><select id="editor-append-1" class="level-select"></select></label>
+            <label><span>A2</span><select id="editor-append-2" class="level-select"></select></label>
+            <label><span>A3</span><select id="editor-append-3" class="level-select"></select></label>
+            <label><span>A4</span><select id="editor-append-4" class="level-select"></select></label>
+            <label><span>A5</span><select id="editor-append-5" class="level-select"></select></label>
+          </div>
+        </details>
+
+        <label class="notes-field">
+          <span>メモ</span>
+          <textarea id="editor-notes" rows="3" placeholder="聖杯、コマンドコード、使い方など"></textarea>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" id="editor-cancel" class="button">キャンセル</button>
+        <button type="submit" class="button button-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="mystic-editor-dialog" class="dialog">
+    <form id="mystic-editor-form" method="dialog">
+      <div class="dialog-heading">
+        <img id="mystic-editor-image" alt="">
+        <div>
+          <p class="eyebrow">魔術礼装</p>
+          <h2 id="mystic-editor-name"></h2>
+        </div>
+        <button type="button" id="mystic-editor-close" class="icon-button" aria-label="閉じる">×</button>
+      </div>
+
+      <p id="mystic-editor-detail" class="mystic-detail"></p>
+
+      <label class="owned-switch">
+        <input id="mystic-editor-owned" type="checkbox">
+        <span>この魔術礼装を所持している</span>
+      </label>
+
+      <div id="mystic-training-fields">
+        <label class="mystic-level-field">
+          <span>現在のレベル</span>
+          <select id="mystic-editor-level"></select>
+        </label>
+
+        <section class="mystic-skill-panel" aria-label="魔術礼装スキル">
+          <h3>スキル</h3>
+          <ul id="mystic-editor-skills"></ul>
+        </section>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" id="mystic-editor-cancel" class="button">キャンセル</button>
+        <button type="submit" class="button button-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="ce-editor-dialog" class="dialog">
+    <form id="ce-editor-form" method="dialog">
+      <div class="dialog-heading">
+        <img id="ce-editor-image" alt="">
+        <div>
+          <p id="ce-editor-meta" class="eyebrow"></p>
+          <h2 id="ce-editor-name"></h2>
+        </div>
+        <button type="button" id="ce-editor-close" class="icon-button" aria-label="閉じる">×</button>
+      </div>
+
+      <p id="ce-editor-stats" class="ce-stats"></p>
+
+      <label class="owned-switch">
+        <input id="ce-editor-owned" type="checkbox">
+        <span>この概念礼装を所持している</span>
+      </label>
+
+      <div id="ce-training-fields">
+        <div class="field-grid ce-fields">
+          <label>
+            <span>合計所持枚数</span>
+            <input id="ce-editor-copies" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="1">
+          </label>
+          <label>
+            <span>最大解放済み枚数</span>
+            <input id="ce-editor-mlb-copies" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="0">
+          </label>
+          <label>
+            <span>最高レベル</span>
+            <input id="ce-editor-level" class="numeric-entry" type="text" inputmode="numeric" lang="en" autocomplete="off" pattern="[0-9]*" placeholder="未入力">
+          </label>
+        </div>
+        <p class="field-help">同じ礼装を複数持っている場合は、いちばん育っている1枚のレベルを入力します。</p>
+        <label class="notes-field">
+          <span>メモ</span>
+          <textarea id="ce-editor-notes" rows="3" placeholder="ATK強化済み、2枚目育成中など"></textarea>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" id="ce-editor-cancel" class="button">キャンセル</button>
+        <button type="submit" class="button button-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="export-dialog" class="dialog export-dialog">
+    <div class="dialog-heading">
+      <div>
+        <p class="eyebrow">ChatGPT / Codex</p>
+        <h2>AI相談用データ</h2>
+      </div>
+      <button type="button" id="export-close" class="icon-button" aria-label="閉じる">×</button>
+    </div>
+    <p class="export-help">この内容をコピーして、高難易度のクエスト名と一緒に送ってください。</p>
+    <textarea id="export-text" rows="18" readonly></textarea>
+    <div class="dialog-actions">
+      <button type="button" id="download-ai-button" class="button">Markdownを保存</button>
+      <button type="button" id="copy-ai-button" class="button button-primary">コピー</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="data/servants.js?v=14"></script>
+  <script src="data/mystic-codes.js?v=14"></script>
+  <script src="data/craft-essences.js?v=14"></script>
+  <script src="safe-store.js"></script>
+  <script src="app.js?v=safety-lab-1"></script>
+</body>
+</html>
